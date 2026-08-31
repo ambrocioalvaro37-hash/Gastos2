@@ -96,10 +96,13 @@ function init(){
   addSwipeNavigation();
 
   refreshRates().catch(()=>{});
+
+  setTimeout(checkFechasProximas, 600);
 }
 
 function showView(which){
   currentView = which;
+  document.body.setAttribute("data-view", which);
   const top=document.getElementById("topPanels");
   if(top) top.style.display=(which==="add")?"":"none";
   $("viewAdd").style.display=(which==="add")?"block":"none";
@@ -177,7 +180,7 @@ function renderMethodsManager(){
 }
 function addMethodFromUI(){
   const input=$("newMethod"); const name=(input.value||"").trim(); if(!name) return;
-  if(methods.some(m=>m.toLowerCase()===name.toLowerCase())) return alert("Ese método ya existe.");
+  if(methods.some(m=>m.toLowerCase()===name.toLowerCase())){showToast("Ese método ya existe.","error");return;}
   methods.push(name); methods.sort((a,b)=>a.localeCompare(b,"es")); saveMethods(methods);
   input.value=""; renderMethodsSelect(); renderMethodsManager(); renderMonth();
 }
@@ -195,8 +198,8 @@ function onSave(){
   const date=$("date").value||todayISO(), currency=$("currency").value, amount=Number($("amount").value);
   const category=($("category").value||"Otros").trim(), method=$("method").value||"", note=($("note").value||"").trim();
   const rateType=$("rateType").value;
-  if(!amount||amount<=0) return alert("Poné un monto válido.");
-  if(!rates?.compra||!rates?.venta) return alert("No tengo dólar. Tocá 'Actualizar ahora'.");
+  if(!amount||amount<=0){showToast("Poné un monto válido.","error");return;}
+  if(!rates?.compra||!rates?.venta){showToast("No tengo dólar. Tocá 'Actualizar ahora'.","error");return;}
   const usedRate=(rateType==="compra")?rates.compra:rates.venta;
   const frozen={blue_compra:rates.compra, blue_venta:rates.venta, fechaActualizacion:rates.fechaActualizacion||rates.fetchedAt||new Date().toISOString(), usado_tipo:rateType, usado_valor:usedRate};
   let ars=0,usd=0;
@@ -207,7 +210,7 @@ function onSave(){
   else gastos.unshift(gasto);
   saveGastos(); renderCatDatalist(); renderMethodsManager(); resetFormKeepPrefs();
   renderList(); renderCalendar(); renderDayDetails(); renderMonth();
-  alert("Guardado ✅");
+  showToast("Gasto guardado ✅","success");
 }
 function editGasto(id){
   const g=findById(id); if(!g) return;
@@ -291,6 +294,12 @@ function renderCalendar(){
     totalsByDay.set(g.date,cur);
   }
 
+  const eventsByDay=new Set();
+  for(const e of eventos){
+    if(!e.date||!e.date.startsWith(mk)) continue;
+    eventsByDay.add(e.date);
+  }
+
   const names=["L","M","M","J","V","S","D"];
   let html=`<div class="calGridHeader">${names.map(n=>`<div class="muted" style="text-align:center;">${n}</div>`).join("")}</div>`;
   html+=`<div class="calGridDays">`;
@@ -298,9 +307,10 @@ function renderCalendar(){
   for(let day=1;day<=dim;day++){
     const iso=`${y}-${String(mo+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
     const has=totalsByDay.get(iso);
+    const hasEvent=eventsByDay.has(iso);
     const sel=iso===calSelectedISO;
     html+=`<button class="calDayBtn ${sel?"sel":""}" data-iso="${iso}">
-      <div class="dotRow"><div style="font-weight:800;">${day}</div>${has?`<span class="dot" title="Hay gastos"></span>`:""} </div>
+      <div class="dotRow"><div style="font-weight:800;">${day}</div>${has?`<span class="dot" title="Hay gastos"></span>`:""}${hasEvent?`<span class="dotEvent" title="Hay eventos"></span>`:""} </div>
       ${has?`<div class="muted" style="font-size:11px;">${has.count} • USD ${fmtNum(round2(has.usd))}</div>`:`<div class="muted" style="font-size:11px;">—</div>`}
     </button>`;
   }
@@ -331,6 +341,15 @@ function renderDayDetails(){
     </div></div>`;
     ul.appendChild(li);
   });
+
+  const dayEvents=eventos.filter(e=>e.date===iso);
+  const ulE=$("dayEventsList"); ulE.innerHTML="";
+  $("dayEventsEmpty").style.display=dayEvents.length?"none":"";
+  dayEvents.forEach(e=>{
+    const li=document.createElement("li"); li.className="item";
+    li.innerHTML=`<div class="itemTop"><div><strong>${escapeHtml(e.description)}</strong><div class="muted">${e.time||""}</div></div></div>`;
+    ulE.appendChild(li);
+  });
 }
 
 // Resumen mes
@@ -343,6 +362,36 @@ function renderMonth(){
   const byCat=new Map();
   for(const g of list){const k=g.category||"Otros"; byCat.set(k,(byCat.get(k)||0)+(Number(g.usd)||0));}
   const rank=[...byCat.entries()].sort((a,b)=>b[1]-a[1]);
+
+  // Gráfico de torta por categoría
+  const totalCatUsd=rank.reduce((s,[,v])=>s+v,0);
+  const chartColors=['#1B5CFF','#8B5CF6','#06B6D4','#FF6B35','#10B981','#F59E0B','#EF4444','#EC4899','#84CC16','#6366F1'];
+  const svgEl=$("catChart"), legendEl=$("catChartLegend");
+  $("catChartEmpty").style.display=rank.length?"none":"";
+  if(svgEl) svgEl.style.display=rank.length?"":"none";
+  if(rank.length && svgEl){
+    const R=55,C=70,STROKE=20,circumference=2*Math.PI*R;
+    let acc=0;
+    let svgHtml=`<circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="${STROKE}"/>`;
+    rank.forEach(([cat,usd],i)=>{
+      const frac=totalCatUsd>0?usd/totalCatUsd:0;
+      const dash=frac*circumference, gap=circumference-dash;
+      const offset=-acc*circumference;
+      const color=chartColors[i%chartColors.length];
+      svgHtml+=`<circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="${color}" stroke-width="${STROKE}" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${offset}" transform="rotate(-90 ${C} ${C})"/>`;
+      acc+=frac;
+    });
+    svgEl.innerHTML=svgHtml;
+    if(legendEl) legendEl.innerHTML=rank.map(([cat,usd],i)=>{
+      const color=chartColors[i%chartColors.length];
+      const pct=totalCatUsd>0?Math.round(usd/totalCatUsd*100):0;
+      return `<div style="display:flex;align-items:center;gap:8px;font-size:13px;"><span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0;"></span><span style="flex:1;">${escapeHtml(cat)}</span><span class="muted">${pct}%</span></div>`;
+    }).join("");
+  } else {
+    if(svgEl) svgEl.innerHTML="";
+    if(legendEl) legendEl.innerHTML="";
+  }
+
   const ul=$("catRank"); ul.innerHTML=""; $("catEmpty").style.display=rank.length?"none":"";
   rank.forEach(([cat,usd])=>{const li=document.createElement("li"); li.className="item";
     li.innerHTML=`<div class="itemTop"><div><strong>${escapeHtml(cat)}</strong></div><div class="pill">${fmtUSD(round2(usd))}</div></div>`; ul.appendChild(li);});
@@ -358,7 +407,7 @@ function renderMonth(){
 
 // Export CSV
 function exportCSV(){
-  if(!gastos.length) return alert("No hay gastos para exportar.");
+  if(!gastos.length){showToast("No hay gastos para exportar.","error");return;}
   const headers=["id","fecha","categoria","metodo","moneda","monto","ars","usd","rate_tipo","rate_valor","blue_compra","blue_venta","fechaActualizacion","nota","createdAt","updatedAt"];
   const rows=gastos.map(g=>[g.id,g.date,g.category||"",g.method||"",g.currency,g.amount,g.ars,g.usd,g.frozen?.usado_tipo||"",g.frozen?.usado_valor||"",g.frozen?.blue_compra||"",g.frozen?.blue_venta||"",g.frozen?.fechaActualizacion||"",String(g.note||"").replaceAll("\n"," ").trim(),g.createdAt||"",g.updatedAt||""]);
   const csv=[headers,...rows].map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
@@ -380,9 +429,9 @@ function loadEventos(){try{return JSON.parse(localStorage.getItem(EVENTS_KEY)||'
 function saveEventos(){localStorage.setItem(EVENTS_KEY,JSON.stringify(eventos));}
 function onSaveEvent(){
   const d=$("eventDate").value||todayISO(),t=$("eventTime").value||"",desc=$("eventDescription").value.trim();
-  if(!desc)return alert("Escribí una descripción");
+  if(!desc){showToast("Escribí una descripción","error");return;}
   eventos.unshift({id:crypto.randomUUID(),date:d,time:t,description:desc});
-  saveEventos();$("eventDescription").value="";renderEventsList();alert("✅ Guardado");
+  saveEventos();$("eventDescription").value="";renderEventsList();renderCalendar();renderDayDetails();showToast("Evento guardado ✅","success");
 }
 function renderEventsList(){
   const m=$("filterEventMonth").value,ul=$("eventsList");ul.innerHTML="";
@@ -397,27 +446,33 @@ function renderEventsList(){
 function editEvento(id){
   const e=eventos.find(x=>x.id===id);if(!e)return;
   $("eventDate").value=e.date;$("eventTime").value=e.time;$("eventDescription").value=e.description;
-  eventos=eventos.filter(x=>x.id!==id);saveEventos();
+  eventos=eventos.filter(x=>x.id!==id);saveEventos();renderCalendar();renderDayDetails();
 }
 function deleteEvento(id){
   if(!confirm("¿Borrar?"))return;
-  eventos=eventos.filter(e=>e.id!==id);saveEventos();renderEventsList();
+  eventos=eventos.filter(e=>e.id!==id);saveEventos();renderEventsList();renderCalendar();renderDayDetails();
 }
+
 
 // INGRESOS
 function loadIngresos(){try{return JSON.parse(localStorage.getItem(INGRESOS_KEY)||'[]');}catch{return [];}}
 function saveIngresos(){localStorage.setItem(INGRESOS_KEY,JSON.stringify(ingresos));}
 function onSaveIngreso(){
-  const d=$("ingresoDate").value||todayISO(),amt=Number($("ingresoAmount").value),desc=$("ingresoDesc").value.trim();
-  if(!amt||amt<=0)return alert("Monto inválido");
-  ingresos.unshift({id:crypto.randomUUID(),date:d,amount:amt,description:desc});
-  saveIngresos();$("ingresoAmount").value="";$("ingresoDesc").value="";renderIngresosList();renderBalance();alert("✅ Guardado");
+  const d=$("ingresoDate").value||todayISO(),currency=$("ingresoCurrency").value||"ARS",amt=Number($("ingresoAmount").value),desc=$("ingresoDesc").value.trim();
+  if(!amt||amt<=0){showToast("Monto inválido","error");return;}
+  let ars=0,usd=0;
+  if(currency==="ARS"){ ars=amt; usd=rates?.venta?round2(amt/rates.venta):0; }
+  else { usd=amt; ars=rates?.venta?round2(amt*rates.venta):amt; }
+  ingresos.unshift({id:crypto.randomUUID(),date:d,amount:amt,currency,ars,usd,description:desc});
+  saveIngresos();$("ingresoAmount").value="";$("ingresoDesc").value="";renderIngresosList();renderBalance();showToast("Ingreso guardado ✅","success");
 }
 function renderIngresosList(){
   const m=$("filterIngresoMonth").value,ul=$("ingresosList");ul.innerHTML="";
   ingresos.filter(i=>!m||i.date.startsWith(m)).forEach(i=>{
     const li=document.createElement("li");li.className="item";
-    li.innerHTML=`<div class="itemTop"><div><strong>${escapeHtml(i.description)}</strong><div class="muted">${i.date} • ${fmtARS(i.amount)}</div></div><div class="actions"><button class="ghost" data-editingreso="${i.id}">Editar</button><button class="ghost" data-delingreso="${i.id}">Borrar</button></div></div>`;
+    const cur=i.currency||"ARS";
+    const montoTxt=cur==="USD"?fmtUSD(i.amount):fmtARS(i.amount);
+    li.innerHTML=`<div class="itemTop"><div><strong>${escapeHtml(i.description)}</strong><div class="muted">${i.date} • ${montoTxt}</div></div><div class="actions"><button class="ghost" data-editingreso="${i.id}">Editar</button><button class="ghost" data-delingreso="${i.id}">Borrar</button></div></div>`;
     ul.appendChild(li);
   });
   ul.querySelectorAll("button[data-editingreso]").forEach(b=>b.onclick=()=>editIngreso(b.getAttribute("data-editingreso")));
@@ -425,8 +480,8 @@ function renderIngresosList(){
 }
 function editIngreso(id){
   const ing=ingresos.find(x=>x.id===id);if(!ing)return;
-  $("ingresoDate").value=ing.date;$("ingresoAmount").value=ing.amount;$("ingresoDesc").value=ing.description;
-  ingresos=ingresos.filter(x=>x.id!==id);saveIngresos();renderBalance();
+  $("ingresoDate").value=ing.date;$("ingresoCurrency").value=ing.currency||"ARS";$("ingresoAmount").value=ing.amount;$("ingresoDesc").value=ing.description;
+  ingresos=ingresos.filter(x=>x.id!==id);saveIngresos();renderIngresosList();renderBalance();
 }
 function deleteIngreso(id){
   if(!confirm("¿Borrar?"))return;
@@ -434,10 +489,13 @@ function deleteIngreso(id){
 }
 function renderBalance(){
   const m=$("filterIngresoMonth").value||monthISO(new Date());
-  const ing=ingresos.filter(i=>i.date.startsWith(m)).reduce((s,i)=>s+i.amount,0);
+  const ing=ingresos.filter(i=>i.date.startsWith(m)).reduce((s,i)=>{
+    const arsVal=(i.ars!==undefined)?i.ars:((i.currency==="USD")?(rates?.venta?i.amount*rates.venta:0):i.amount);
+    return s+arsVal;
+  },0);
   const gast=gastos.filter(g=>g.date&&g.date.startsWith(m)).reduce((s,g)=>s+(Number(g.ars)||0),0);
-  const bal=ing-gast;
-  $("totalIngresos").textContent=fmtARS(ing);
+  const bal=round2(ing-gast);
+  $("totalIngresos").textContent=fmtARS(round2(ing));
   $("totalGastos").textContent=fmtARS(gast);
   $("balance").textContent=fmtARS(bal);
   $("balance").style.color=bal>=0?"#2DD4BF":"#ef4444";
@@ -449,11 +507,11 @@ function loadFechasImp(){try{return JSON.parse(localStorage.getItem(FECHASIMP_KE
 function saveFechasImp(){localStorage.setItem(FECHASIMP_KEY,JSON.stringify(fechasImp));}
 function onSaveFechaImp(){
   const d=$("fechaImpDate").value,desc=$("fechaImpDesc").value.trim();
-  if(!d)return alert("Elegí una fecha");
-  if(!desc)return alert("Escribí una descripción");
+  if(!d){showToast("Elegí una fecha","error");return;}
+  if(!desc){showToast("Escribí una descripción","error");return;}
   fechasImp.unshift({id:crypto.randomUUID(),date:d,description:desc});
   fechasImp.sort((a,b)=>a.date.localeCompare(b.date));
-  saveFechasImp();$("fechaImpDesc").value="";renderFechasImpList();alert("✅ Guardado");
+  saveFechasImp();$("fechaImpDesc").value="";renderFechasImpList();showToast("Fecha guardada ✅","success");
 }
 function renderFechasImpList(){
   const ul=$("fechasImpList");if(!ul)return;ul.innerHTML="";
@@ -474,6 +532,22 @@ function editFechaImp(id){
 function deleteFechaImp(id){
   if(!confirm("¿Borrar esta fecha importante?"))return;
   fechasImp=fechasImp.filter(f=>f.id!==id);saveFechasImp();renderFechasImpList();
+}
+function checkFechasProximas(){
+  const hoy=new Date(todayISO()+"T00:00:00");
+  const limite=new Date(hoy); limite.setDate(limite.getDate()+7);
+  const proximas=fechasImp.filter(f=>{
+    const fd=new Date(f.date+"T00:00:00");
+    return fd>=hoy && fd<=limite;
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!proximas.length) return;
+  const lines=proximas.map(f=>{
+    const fd=new Date(f.date+"T00:00:00");
+    const dias=Math.round((fd-hoy)/86400000);
+    const cuando=dias===0?"hoy":dias===1?"mañana":`en ${dias} días`;
+    return `• ${f.description} — ${cuando} (${f.date})`;
+  });
+  alert(`⭐ Fechas importantes próximas:\n\n${lines.join("\n")}`);
 }
 
 // COPIA DE SEGURIDAD (BACKUP)
@@ -505,7 +579,7 @@ function importBackup(ev){
   const reader=new FileReader();
   reader.onload=()=>{
     let data;
-    try{data=JSON.parse(reader.result);}catch{alert("❌ El archivo no es un backup válido");return;}
+    try{data=JSON.parse(reader.result);}catch{showToast("El archivo no es un backup válido","error");return;}
     if(!confirm("Esto va a REEMPLAZAR todos los datos actuales con los del backup. ¿Continuar?"))return;
     if(Array.isArray(data.gastos)){gastos=data.gastos;saveGastos();}
     if(data.settings){settings=data.settings;saveSettings(settings);}
@@ -518,9 +592,23 @@ function importBackup(ev){
     updatePreview();renderList();renderCalendar();renderDayDetails();renderMonth();
     renderEventsList();renderIngresosList();renderFechasImpList();
     $("inputImportBackup").value="";
-    alert("✅ Datos restaurados correctamente");
+    showToast("Datos restaurados correctamente ✅","success");
   };
   reader.readAsText(file);
+}
+
+// Toasts
+function showToast(msg,type="success"){
+  const cont=$("toastContainer");if(!cont)return;
+  const t=document.createElement("div");
+  t.className=`toast ${type}`;
+  t.textContent=msg;
+  cont.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add("show"));
+  setTimeout(()=>{
+    t.classList.remove("show");
+    setTimeout(()=>t.remove(),300);
+  },2600);
 }
 
 // Helpers
