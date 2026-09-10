@@ -44,12 +44,72 @@ body[data-view="month"]{ background: linear-gradient(180deg, #04090B, #081824); 
 body[data-view="events"]{ background: linear-gradient(180deg, #0A0605, #1A0D06); }
 body[data-view="ingresos"]{ background: linear-gradient(180deg, #04100B, #071710); }
 
-header{
-  padding:16px;
-  position: sticky; top:0; z-index:10;
+header {
+  padding: 16px;
+  position: sticky; top: 0; z-index: 10;
   backdrop-filter: blur(10px);
-  background: rgba(7,10,16,.65);
-  border-bottom:1px solid var(--stroke);
+  background: rgba(7, 10, 16, .65);
+  border-bottom: 1px solid var(--stroke);
+  
+  /* Nuevas líneas para alinear todo */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* --- Elementos de la derecha (Campana y Perfil) --- */
+.acciones-usuario {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Botón Campanita adaptado a tu modo oscuro */
+.btn-campanita {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2); 
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 18px;
+  cursor: pointer;
+  position: relative;
+  color: white; 
+}
+
+/* El puntito rojo de notificación */
+.indicador-notificacion {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  background-color: #ff3b30;
+  border-radius: 50%;
+  border: 2px solid rgba(7, 10, 16, 1);
+}
+
+/* Perfil de Usuario adaptado */
+.perfil-usuario {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 5px 15px 5px 5px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-weight: 500;
+  color: white; 
+}
+
+.perfil-usuario img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.flecha-abajo {
+  font-size: 10px;
+  color: #A0AAB5;
 }
 
 main{ padding:16px; max-width: 1020px; margin:0 auto; }
