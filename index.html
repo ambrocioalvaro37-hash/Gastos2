@@ -44,73 +44,16 @@ body[data-view="month"]{ background: linear-gradient(180deg, #04090B, #081824); 
 body[data-view="events"]{ background: linear-gradient(180deg, #0A0605, #1A0D06); }
 body[data-view="ingresos"]{ background: linear-gradient(180deg, #04100B, #071710); }
 
-header {
-  padding: 16px;
-  position: sticky; top: 0; z-index: 10;
+header{
+  padding:16px;
+  display:flex; align-items:center; gap:12px;
+  position: sticky; top:0; z-index:10;
   backdrop-filter: blur(10px);
-  background: rgba(7, 10, 16, .65);
-  border-bottom: 1px solid var(--stroke);
-  
-  /* Nuevas líneas para alinear todo */
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  background: rgba(7,10,16,.65);
+  border-bottom:1px solid var(--stroke);
 }
-
-/* --- Elementos de la derecha (Campana y Perfil) --- */
-.acciones-usuario {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-/* Botón Campanita adaptado a tu modo oscuro */
-.btn-campanita {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2); 
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 18px;
-  cursor: pointer;
-  position: relative;
-  color: white; 
-}
-
-/* El puntito rojo de notificación */
-.indicador-notificacion {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 12px;
-  height: 12px;
-  background-color: #ff3b30;
-  border-radius: 50%;
-  border: 2px solid rgba(7, 10, 16, 1);
-}
-
-/* Perfil de Usuario adaptado */
-.perfil-usuario {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 5px 15px 5px 5px;
-  border-radius: 25px;
-  cursor: pointer;
-  font-weight: 500;
-  color: white; 
-}
-
-.perfil-usuario img {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-}
-
-.flecha-abajo {
-  font-size: 10px;
-  color: #A0AAB5;
-}
+.headerTitle{ flex:1; min-width:0; }
+.headerActions{ display:flex; align-items:center; gap:10px; flex-shrink:0; }
 
 main{ padding:16px; max-width: 1020px; margin:0 auto; }
 
@@ -202,22 +145,30 @@ button.ghost{ background: transparent; }
 .actions{ display:flex; gap:8px; }
 .actions button{ width:auto; padding:8px 10px; font-size:12px; border-radius: 12px; }
 
-.tabs{
-  display:flex; gap:8px;
-  padding:6px;
-  border-radius: 999px;
-  border:1px solid var(--stroke);
-  background: rgba(0,0,0,.18);
+/* Sidebar */
+.appShell{ display:flex; min-height:100vh; align-items:stretch; }
+.sidebar{
+  width:230px; flex-shrink:0;
+  background: #0B0F1A;
+  border-right:1px solid var(--stroke);
+  padding:18px 12px;
+  position:fixed; top:0; left:0; bottom:0;
+  transform:translateX(-100%);
+  transition: transform .25s ease;
+  z-index:1000;
+  overflow-y:auto;
 }
-.tabs button{
-  width:auto;
-  padding:8px 12px;
-  border-radius:999px;
-  border:1px solid transparent;
-  background: transparent;
-  font-weight:800;
+.sidebar.open{ transform:translateX(0); }
+.sidebarBrand{ font-weight:800; font-size:16px; padding:6px 10px 22px; display:flex; align-items:center; gap:8px; }
+.sidebarNav{ display:flex; flex-direction:column; gap:6px; }
+.navItem{
+  display:flex; align-items:center; gap:10px;
+  width:100%; text-align:left; padding:12px 14px;
+  border-radius:12px; border:1px solid transparent;
+  background:transparent; font-weight:700; font-size:14px;
 }
-.tabs button.active{
+.navItem span{ font-size:14px; }
+.navItem.active{
   background: rgba(27,92,255,.18);
   border-color: rgba(27,92,255,.45);
   box-shadow: 0 8px 18px rgba(27,92,255,.15);
@@ -241,6 +192,43 @@ button.ghost{ background: transparent; }
   background: rgba(16,185,129,.18);
   border-color: rgba(16,185,129,.45);
   box-shadow: 0 8px 18px rgba(16,185,129,.15);
+}
+.sidebarBackdrop{
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999;
+}
+.sidebarBackdrop.show{ display:block; }
+.mainArea{ flex:1; min-width:0; }
+
+@media (min-width:900px){
+  .sidebar{ position:sticky; transform:none; }
+  .sidebarBackdrop{ display:none !important; }
+  #btnMenuToggle{ display:none; }
+}
+
+/* Header icon buttons / dropdowns */
+.iconBtn{
+  width:auto; padding:9px 11px; border-radius:999px; font-size:17px;
+  background: rgba(255,255,255,.06); border:1px solid var(--stroke); position:relative;
+}
+.bellDot{
+  position:absolute; top:4px; right:4px; width:9px; height:9px; border-radius:50%;
+  background:#ef4444; border:2px solid var(--bg0);
+}
+.userBtn{
+  width:auto; display:flex; align-items:center; gap:4px; padding:4px 10px 4px 4px;
+  border-radius:999px; background: rgba(255,255,255,.06); border:1px solid var(--stroke);
+}
+.avatarCircle{
+  width:26px; height:26px; border-radius:50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display:flex; align-items:center; justify-content:center; font-size:14px;
+}
+.caret{ font-size:11px; opacity:.7; }
+.userMenuWrap{ position:relative; }
+.userDropdown{
+  position:absolute; right:0; top:calc(100% + 10px); width:260px;
+  background: var(--bg1); border:1px solid var(--stroke2); border-radius:14px;
+  padding:14px; box-shadow:0 20px 40px rgba(0,0,0,.5); z-index:1500;
 }
 
 .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
@@ -338,38 +326,50 @@ button:disabled:hover{background: rgba(0,0,0,.18); border-color: var(--stroke); 
 .toast.info{ background: rgba(27,92,255,.22); border-color: rgba(27,92,255,.55); color:#DBEAFE; }
 
 </style></head><body>
-<header>
-  <div class="row" style="align-items:center;justify-content:space-between;">
-    <div><div style="font-weight:800;font-size:18px;">Gastos ARS/USD</div>
-      <div class="muted">Blue automático + dólar “congelado” por gasto</div></div>
-    <div class="tabs">
-      <button class="ghost" id="tabAdd">Agregar</button>
-      <button class="ghost" id="tabList">Historial</button>
-      <button class="ghost" id="tabMonth">Mes</button>
-      <button class="ghost" id="tabEvents">Eventos</button>
-      <button class="ghost" id="tabIngresos">Ingresos</button>
-    </div>
-  </div>
-</header>
+<div class="appShell">
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebarBrand">💼 <span>Gastos <b>ARS/USD</b></span></div>
+    <nav class="sidebarNav">
+      <button class="ghost navItem" id="tabAdd">➕ <span>Agregar</span></button>
+      <button class="ghost navItem" id="tabList">🧾 <span>Historial</span></button>
+      <button class="ghost navItem" id="tabMonth">📅 <span>Mes</span></button>
+      <button class="ghost navItem" id="tabEvents">🗓️ <span>Eventos</span></button>
+      <button class="ghost navItem" id="tabIngresos">💰 <span>Ingresos</span></button>
+    </nav>
+  </aside>
+  <div id="sidebarBackdrop" class="sidebarBackdrop"></div>
 
-<main>
-  <div class="card" style="margin-bottom:12px;">
-    <div class="row" style="justify-content:space-between;align-items:center;">
-      <div>
-        <h2 style="margin:0 0 4px;font-size:16px;">💾 Copia de seguridad</h2>
-        <div class="muted" style="font-size:12px;">Guardá tus datos antes de actualizar la app, o restauralos después</div>
+  <div class="mainArea">
+    <header>
+      <button id="btnMenuToggle" class="iconBtn" aria-label="Abrir menú">☰</button>
+      <div class="headerTitle">
+        <div style="font-weight:800;font-size:18px;">Gastos ARS/USD</div>
+        <div class="muted" style="font-size:12px;">Blue automático + dólar "congelado" por gasto</div>
       </div>
-      <div class="row" style="width:auto;">
-        <button class="ghost" id="btnExportBackup" style="width:auto;">⬇️ Exportar</button>
-        <button class="ghost" id="btnImportBackup" style="width:auto;">⬆️ Importar</button>
-        <input type="file" id="inputImportBackup" accept="application/json" style="display:none;"/>
+      <div class="headerActions">
+        <div id="bellWrap" style="position:relative;">
+          <button id="btnBell" class="iconBtn" aria-label="Notificaciones">🔔<span id="bellDot" class="bellDot" style="display:none;"></span></button>
+          <div id="bellDropdown" class="userDropdown" style="display:none;"></div>
+        </div>
+        <div class="userMenuWrap">
+          <button id="btnUserMenu" class="userBtn" aria-label="Usuario">
+            <span class="avatarCircle">🙂</span><span class="caret">▾</span>
+          </button>
+          <div id="userDropdown" class="userDropdown" style="display:none;">
+            <div style="font-weight:800;margin-bottom:4px;">💾 Copia de seguridad</div>
+            <div class="muted" style="font-size:12px;margin-bottom:10px;">Guardá tus datos antes de actualizar la app, o restauralos después</div>
+            <button class="ghost" id="btnExportBackup" style="width:100%;margin-bottom:6px;">⬇️ Exportar</button>
+            <button class="ghost" id="btnImportBackup" style="width:100%;">⬆️ Importar</button>
+            <input type="file" id="inputImportBackup" accept="application/json" style="display:none;"/>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
+    </header>
 
-  <div id="topPanels" class="grid2">
-    <section class="card" id="panelRates">
-      <h2>💱 Dólar Blue (auto)</h2>
+    <main>
+      <div id="topPanels" class="grid2">
+        <section class="card" id="panelRates">
+          <h2>💱 Dólar Blue (auto)</h2>
       <div class="row">
         <div style="flex:1;min-width:200px;"><div class="pill">Compra: <span id="blueCompra">—</span></div></div>
         <div style="flex:1;min-width:200px;"><div class="pill">Venta: <span id="blueVenta">—</span></div></div>
@@ -567,6 +567,8 @@ button:disabled:hover{background: rgba(0,0,0,.18); border-color: var(--stroke); 
     <ul class="list" id="ingresosList"></ul>
   </section>
 </main>
+  </div>
+</div>
 
 <div id="toastContainer"></div>
 

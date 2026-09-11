@@ -22,6 +22,37 @@ function init(){
   $("tabEvents").onclick=()=>showView("events");
   $("tabIngresos").onclick=()=>showView("ingresos");
 
+  // Sidebar (mobile drawer)
+  $("btnMenuToggle").onclick=()=>{
+    const open=$("sidebar").classList.contains("open");
+    if(open){$("sidebar").classList.remove("open");$("sidebarBackdrop").classList.remove("show");}
+    else{$("sidebar").classList.add("open");$("sidebarBackdrop").classList.add("show");}
+  };
+  $("sidebarBackdrop").onclick=()=>{$("sidebar").classList.remove("open");$("sidebarBackdrop").classList.remove("show");};
+
+  // Campanita (fechas próximas)
+  $("btnBell").onclick=(e)=>{
+    e.stopPropagation();
+    $("userDropdown").style.display="none";
+    const dd=$("bellDropdown");
+    if(dd.style.display==="block"){dd.style.display="none";return;}
+    renderBellDropdown();
+    dd.style.display="block";
+  };
+
+  // Usuario (backup)
+  $("btnUserMenu").onclick=(e)=>{
+    e.stopPropagation();
+    $("bellDropdown").style.display="none";
+    const dd=$("userDropdown");
+    dd.style.display=(dd.style.display==="block")?"none":"block";
+  };
+
+  document.addEventListener("click",(e)=>{
+    if(!e.target.closest("#bellWrap")) $("bellDropdown").style.display="none";
+    if(!e.target.closest(".userMenuWrap")) $("userDropdown").style.display="none";
+  });
+
   // Defaults
   $("date").value=todayISO();
   $("filterMonth").value=monthISO(new Date());
@@ -97,6 +128,7 @@ function init(){
 
   refreshRates().catch(()=>{});
 
+  updateBellDot();
   setTimeout(checkFechasProximas, 600);
 }
 
@@ -116,6 +148,8 @@ function showView(which){
   if (which === "month") $("tabMonth").classList.add("active");
   if (which === "events") $("tabEvents").classList.add("active");
   if (which === "ingresos") {$("tabIngresos").classList.add("active");renderBalance();}
+  $("sidebar").classList.remove("open");
+  $("sidebarBackdrop").classList.remove("show");
 }
 
 // Rates
@@ -511,7 +545,7 @@ function onSaveFechaImp(){
   if(!desc){showToast("Escribí una descripción","error");return;}
   fechasImp.unshift({id:crypto.randomUUID(),date:d,description:desc});
   fechasImp.sort((a,b)=>a.date.localeCompare(b.date));
-  saveFechasImp();$("fechaImpDesc").value="";renderFechasImpList();showToast("Fecha guardada ✅","success");
+  saveFechasImp();$("fechaImpDesc").value="";renderFechasImpList();updateBellDot();showToast("Fecha guardada ✅","success");
 }
 function renderFechasImpList(){
   const ul=$("fechasImpList");if(!ul)return;ul.innerHTML="";
@@ -527,20 +561,24 @@ function renderFechasImpList(){
 function editFechaImp(id){
   const f=fechasImp.find(x=>x.id===id);if(!f)return;
   $("fechaImpDate").value=f.date;$("fechaImpDesc").value=f.description;
-  fechasImp=fechasImp.filter(x=>x.id!==id);saveFechasImp();renderFechasImpList();
+  fechasImp=fechasImp.filter(x=>x.id!==id);saveFechasImp();renderFechasImpList();updateBellDot();
 }
 function deleteFechaImp(id){
   if(!confirm("¿Borrar esta fecha importante?"))return;
-  fechasImp=fechasImp.filter(f=>f.id!==id);saveFechasImp();renderFechasImpList();
+  fechasImp=fechasImp.filter(f=>f.id!==id);saveFechasImp();renderFechasImpList();updateBellDot();
 }
-function checkFechasProximas(){
+function getProximasFechas(){
   const hoy=new Date(todayISO()+"T00:00:00");
   const limite=new Date(hoy); limite.setDate(limite.getDate()+7);
-  const proximas=fechasImp.filter(f=>{
+  return fechasImp.filter(f=>{
     const fd=new Date(f.date+"T00:00:00");
     return fd>=hoy && fd<=limite;
   }).sort((a,b)=>a.date.localeCompare(b.date));
+}
+function checkFechasProximas(){
+  const proximas=getProximasFechas();
   if(!proximas.length) return;
+  const hoy=new Date(todayISO()+"T00:00:00");
   const lines=proximas.map(f=>{
     const fd=new Date(f.date+"T00:00:00");
     const dias=Math.round((fd-hoy)/86400000);
@@ -548,6 +586,25 @@ function checkFechasProximas(){
     return `• ${f.description} — ${cuando} (${f.date})`;
   });
   alert(`⭐ Fechas importantes próximas:\n\n${lines.join("\n")}`);
+}
+function renderBellDropdown(){
+  const proximas=getProximasFechas();
+  const cont=$("bellDropdown");
+  if(!proximas.length){
+    cont.innerHTML=`<div class="muted" style="font-size:13px;">No hay fechas importantes próximas.</div>`;
+    return;
+  }
+  const hoy=new Date(todayISO()+"T00:00:00");
+  cont.innerHTML=`<div style="font-weight:800;margin-bottom:10px;">⭐ Próximas fechas</div>`+proximas.map(f=>{
+    const fd=new Date(f.date+"T00:00:00");
+    const dias=Math.round((fd-hoy)/86400000);
+    const cuando=dias===0?"hoy":dias===1?"mañana":`en ${dias} días`;
+    return `<div style="padding:8px 0;border-top:1px solid var(--stroke);"><strong>${escapeHtml(f.description)}</strong><div class="muted" style="font-size:12px;">${cuando} • ${f.date}</div></div>`;
+  }).join("");
+}
+function updateBellDot(){
+  const dot=$("bellDot"); if(!dot) return;
+  dot.style.display=getProximasFechas().length?"block":"none";
 }
 
 // COPIA DE SEGURIDAD (BACKUP)
@@ -590,7 +647,7 @@ function importBackup(ev){
     if(Array.isArray(data.fechasImp)){fechasImp=data.fechasImp;saveFechasImp();}
     renderCatDatalist();renderMethodsSelect();renderMethodsManager();renderRates();
     updatePreview();renderList();renderCalendar();renderDayDetails();renderMonth();
-    renderEventsList();renderIngresosList();renderFechasImpList();
+    renderEventsList();renderIngresosList();renderFechasImpList();updateBellDot();
     $("inputImportBackup").value="";
     showToast("Datos restaurados correctamente ✅","success");
   };
