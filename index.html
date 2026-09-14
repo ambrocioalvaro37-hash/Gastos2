@@ -24,6 +24,8 @@
   --hist2:#C4B5FD;
   --mes:#06B6D4;
   --mes2:#67E8F9;
+  --rent:#F59E0B;
+  --rent2:#FCD34D;
   --radius:18px;
 }
 
@@ -43,6 +45,7 @@ body[data-view="list"]{ background: linear-gradient(180deg, #0A0714, #120B21); }
 body[data-view="month"]{ background: linear-gradient(180deg, #04090B, #081824); }
 body[data-view="events"]{ background: linear-gradient(180deg, #0A0605, #1A0D06); }
 body[data-view="ingresos"]{ background: linear-gradient(180deg, #04100B, #071710); }
+body[data-view="rentabilidad"]{ background: linear-gradient(180deg, #140F02, #1F1706); }
 
 header{
   padding:16px;
@@ -122,6 +125,8 @@ button.event{background:linear-gradient(135deg,#FF6B35,#FFA07A);border-color:rgb
 button.event:hover{box-shadow:0 14px 30px rgba(255,107,53,.28);}
 button.ingreso{background:linear-gradient(135deg,#10B981,#34D399);border-color:rgba(16,185,129,.55);box-shadow:0 10px 24px rgba(16,185,129,.22);}
 button.ingreso:hover{box-shadow:0 14px 30px rgba(16,185,129,.28);}
+button.rent{background:linear-gradient(135deg,#F59E0B,#FCD34D);border-color:rgba(245,158,11,.55);box-shadow:0 10px 24px rgba(245,158,11,.22);color:#1a1200;}
+button.rent:hover{box-shadow:0 14px 30px rgba(245,158,11,.28);}
 
 button.ghost{ background: transparent; }
 
@@ -192,6 +197,11 @@ button.ghost{ background: transparent; }
   background: rgba(16,185,129,.18);
   border-color: rgba(16,185,129,.45);
   box-shadow: 0 8px 18px rgba(16,185,129,.15);
+}
+#tabRentabilidad.active{
+  background: rgba(245,158,11,.18);
+  border-color: rgba(245,158,11,.45);
+  box-shadow: 0 8px 18px rgba(245,158,11,.15);
 }
 .sidebarBackdrop{
   display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999;
@@ -307,6 +317,10 @@ button:disabled:hover{background: rgba(0,0,0,.18); border-color: var(--stroke); 
 #viewIngresos.card{ border-color: rgba(16,185,129,.35); background: linear-gradient(180deg, rgba(16,185,129,.12), rgba(0,0,0,.22)); }
 #viewIngresos h2{ color: #6EE7B7; }
 
+#viewRentabilidad.card{ border-color: rgba(245,158,11,.35); background: linear-gradient(180deg, rgba(245,158,11,.12), rgba(0,0,0,.22)); }
+#viewRentabilidad h2{ color: #FCD34D; }
+#viewRentabilidad .subcard{ border-color: rgba(245,158,11,.18); background: linear-gradient(180deg, rgba(245,158,11,.08), rgba(0,0,0,.28)); }
+
 /* Toasts */
 #toastContainer{
   position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
@@ -335,6 +349,7 @@ button:disabled:hover{background: rgba(0,0,0,.18); border-color: var(--stroke); 
       <button class="ghost navItem" id="tabMonth">📅 <span>Mes</span></button>
       <button class="ghost navItem" id="tabEvents">🗓️ <span>Eventos</span></button>
       <button class="ghost navItem" id="tabIngresos">💰 <span>Ingresos</span></button>
+      <button class="ghost navItem" id="tabRentabilidad">📦 <span>Rentabilidad</span></button>
     </nav>
   </aside>
   <div id="sidebarBackdrop" class="sidebarBackdrop"></div>
@@ -565,6 +580,55 @@ button:disabled:hover{background: rgba(0,0,0,.18); border-color: var(--stroke); 
     <hr>
     <input type="month" id="filterIngresoMonth" style="margin-bottom:10px;"/>
     <ul class="list" id="ingresosList"></ul>
+  </section>
+
+  <section class="card" id="viewRentabilidad" style="margin-top:12px;display:none;">
+    <h2>📦 Rentabilidad</h2>
+
+    <div class="row" style="margin-bottom:14px;">
+      <div class="pill">Vendidos: <strong id="rentTotalVendidos">0</strong></div>
+      <div class="pill">Margen promedio: <strong id="rentMargenProm">—</strong></div>
+      <div class="pill">En inventario: <strong id="rentTotalInventario">0</strong></div>
+    </div>
+
+    <div class="card subcard" style="margin-top:0;">
+      <h2 style="margin:0 0 10px;font-size:16px;">➕ Registrar producto</h2>
+      <div class="row">
+        <div style="flex:2;min-width:180px;"><label>Producto</label><input id="rentNombre" placeholder="PS5, iPhone 13..."/></div>
+        <div style="flex:1;min-width:140px;"><label>Fecha compra</label><input type="date" id="rentFechaCompra"/></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div style="flex:1;min-width:110px;"><label>Moneda costo</label><select id="rentCostoCurrency"><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+        <div style="flex:1;min-width:150px;"><label>Costo del producto</label><input type="number" id="rentCosto" placeholder="300"/></div>
+        <div style="flex:1;min-width:170px;"><label>Gastos logísticos (ARS)</label><input type="number" id="rentGastos" placeholder="15000"/></div>
+      </div>
+      <button class="rent" id="btnSaveRent" style="margin-top:10px;">Guardar producto</button>
+    </div>
+
+    <div id="rentVentaPanel" class="card subcard" style="margin-top:12px;display:none;">
+      <h2 style="margin:0 0 10px;font-size:16px;">💰 Marcar como vendido: <span id="rentVentaNombre"></span></h2>
+      <div class="row">
+        <div style="flex:1;min-width:140px;"><label>Fecha venta</label><input type="date" id="rentFechaVenta"/></div>
+        <div style="flex:1;min-width:110px;"><label>Moneda venta</label><select id="rentVentaCurrency"><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+        <div style="flex:1;min-width:150px;"><label>Precio de venta</label><input type="number" id="rentPrecioVenta" placeholder="450000"/></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="rent" id="btnConfirmVenta" style="width:auto;">Confirmar venta</button>
+        <button class="ghost" id="btnCancelVenta" style="width:auto;">Cancelar</button>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <h2 style="margin:0 0 10px;">📥 En inventario</h2>
+      <ul class="list" id="rentInventarioList"></ul>
+      <div class="muted" id="rentInventarioEmpty" style="display:none;">No hay productos en inventario.</div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <h2 style="margin:0 0 10px;">✅ Vendidos</h2>
+      <ul class="list" id="rentVendidosList"></ul>
+      <div class="muted" id="rentVendidosEmpty" style="display:none;">Todavía no vendiste nada.</div>
+    </div>
   </section>
 </main>
   </div>

@@ -1,11 +1,12 @@
 // Config
 const BLUE_URL="https://dolarapi.com/v1/dolares/blue";
-const STORE_KEY="gastos_app_v1", SETTINGS_KEY="gastos_settings_v1", RATES_KEY="gastos_rates_cache_v1", METHODS_KEY="gastos_methods_v1", EVENTS_KEY="eventos_v1", INGRESOS_KEY="ingresos_v1", FECHASIMP_KEY="fechas_importantes_v1";
+const STORE_KEY="gastos_app_v1", SETTINGS_KEY="gastos_settings_v1", RATES_KEY="gastos_rates_cache_v1", METHODS_KEY="gastos_methods_v1", EVENTS_KEY="eventos_v1", INGRESOS_KEY="ingresos_v1", FECHASIMP_KEY="fechas_importantes_v1", RENT_KEY="rentabilidad_v1";
 const $=id=>document.getElementById(id);
 
 // Estado
 let gastos=loadGastos(), settings=loadSettings(), rates=loadRatesCache(), methods=loadMethods(), editingId=null;
-let eventos=[], ingresos=[], fechasImp=[];
+let eventos=[], ingresos=[], fechasImp=[], rentabilidad=[];
+let rentVentaId=null;
 let calCurrent=new Date(); calCurrent.setDate(1);
 let calSelectedISO=todayISO();
 let historyDayISO=null;
@@ -15,12 +16,14 @@ function init(){
   eventos=loadEventos();
   ingresos=loadIngresos();
   fechasImp=loadFechasImp();
+  rentabilidad=loadRentabilidad();
   // Tabs
   $("tabAdd").onclick=()=>showView("add");
   $("tabList").onclick=()=>showView("list");
   $("tabMonth").onclick=()=>showView("month");
   $("tabEvents").onclick=()=>showView("events");
   $("tabIngresos").onclick=()=>showView("ingresos");
+  $("tabRentabilidad").onclick=()=>showView("rentabilidad");
 
   // Sidebar (mobile drawer)
   $("btnMenuToggle").onclick=()=>{
@@ -62,6 +65,7 @@ function init(){
   $("filterEventMonth").value=monthISO(new Date());
   $("filterIngresoMonth").value=monthISO(new Date());
   $("fechaImpDate").value=todayISO();
+  $("rentFechaCompra").value=todayISO();
 
   // Settings
   $("defaultRateType").value=settings.defaultRateType;
@@ -103,6 +107,9 @@ function init(){
   $("btnSaveIngreso").onclick=onSaveIngreso;
   $("filterIngresoMonth").onchange=()=>{renderIngresosList();renderBalance();};
   $("btnSaveFechaImp").onclick=onSaveFechaImp;
+  $("btnSaveRent").onclick=onSaveRent;
+  $("btnConfirmVenta").onclick=onConfirmVenta;
+  $("btnCancelVenta").onclick=cancelVenta;
 
   // Backup
   $("btnExportBackup").onclick=exportBackup;
@@ -123,6 +130,7 @@ function init(){
   renderEventsList();
   renderIngresosList();
   renderFechasImpList();
+  renderRentabilidad();
   showView("add");
   addSwipeNavigation();
 
@@ -142,12 +150,14 @@ function showView(which){
   $("viewMonth").style.display=(which==="month")?"block":"none";
   $("viewEvents").style.display=(which==="events")?"block":"none";
   $("viewIngresos").style.display=(which==="ingresos")?"block":"none";
-  ["tabAdd","tabList","tabMonth","tabEvents","tabIngresos"].forEach(id => $(id).classList.remove("active"));
+  $("viewRentabilidad").style.display=(which==="rentabilidad")?"block":"none";
+  ["tabAdd","tabList","tabMonth","tabEvents","tabIngresos","tabRentabilidad"].forEach(id => $(id).classList.remove("active"));
   if (which === "add") $("tabAdd").classList.add("active");
   if (which === "list") $("tabList").classList.add("active");
   if (which === "month") $("tabMonth").classList.add("active");
   if (which === "events") $("tabEvents").classList.add("active");
   if (which === "ingresos") {$("tabIngresos").classList.add("active");renderBalance();}
+  if (which === "rentabilidad") {$("tabRentabilidad").classList.add("active");renderRentabilidad();}
   $("sidebar").classList.remove("open");
   $("sidebarBackdrop").classList.remove("show");
 }
@@ -536,6 +546,137 @@ function renderBalance(){
 }
 function getCurrentTime(){const d=new Date();return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;}
 
+// RENTABILIDAD (reventa)
+function loadRentabilidad(){try{return JSON.parse(localStorage.getItem(RENT_KEY)||'[]');}catch{return [];}}
+function saveRentabilidad(){localStorage.setItem(RENT_KEY,JSON.stringify(rentabilidad));}
+function onSaveRent(){
+  const nombre=($("rentNombre").value||"").trim();
+  const fechaCompra=$("rentFechaCompra").value||todayISO();
+  const costoCurrency=$("rentCostoCurrency").value||"ARS";
+  const costo=Number($("rentCosto").value);
+  const gastosLog=Number($("rentGastos").value)||0;
+  if(!nombre){showToast("Escribí el nombre del producto","error");return;}
+  if(!costo||costo<=0){showToast("Poné un costo válido","error");return;}
+  const rate=rates?.venta;
+  let costoArs,costoUsd;
+  if(costoCurrency==="ARS"){ costoArs=costo; costoUsd=rate?round2(costo/rate):0; }
+  else { costoUsd=costo; costoArs=rate?round2(costo*rate):costo; }
+  const item={
+    id:crypto.randomUUID(), nombre, fechaCompra, costoCurrency, costo, costoArs, costoUsd,
+    gastosLogisticos:gastosLog, estado:"inventario",
+    fechaVenta:null, precioVenta:null, precioVentaCurrency:null, precioVentaArs:null, precioVentaUsd:null,
+    gananciaNetaArs:null, margenPct:null
+  };
+  rentabilidad.unshift(item);
+  saveRentabilidad();
+  $("rentNombre").value="";$("rentCosto").value="";$("rentGastos").value="";
+  renderRentabilidad();
+  showToast("Producto guardado ✅","success");
+}
+function startVenta(id){
+  rentVentaId=id;
+  const item=rentabilidad.find(r=>r.id===id); if(!item) return;
+  $("rentVentaNombre").textContent=item.nombre;
+  $("rentFechaVenta").value=todayISO();
+  $("rentVentaCurrency").value="ARS";
+  $("rentPrecioVenta").value="";
+  $("rentVentaPanel").style.display="block";
+  $("rentVentaPanel").scrollIntoView({behavior:"smooth",block:"center"});
+}
+function cancelVenta(){
+  rentVentaId=null;
+  $("rentVentaPanel").style.display="none";
+}
+function onConfirmVenta(){
+  if(!rentVentaId) return;
+  const item=rentabilidad.find(r=>r.id===rentVentaId); if(!item) return;
+  const fechaVenta=$("rentFechaVenta").value||todayISO();
+  const currency=$("rentVentaCurrency").value||"ARS";
+  const precio=Number($("rentPrecioVenta").value);
+  if(!precio||precio<=0){showToast("Poné un precio de venta válido","error");return;}
+  const rate=rates?.venta;
+  let precioArs,precioUsd;
+  if(currency==="ARS"){ precioArs=precio; precioUsd=rate?round2(precio/rate):0; }
+  else { precioUsd=precio; precioArs=rate?round2(precio*rate):precio; }
+  const gananciaNetaArs=round2(precioArs-item.costoArs-(item.gastosLogisticos||0));
+  const margenPct=precioArs>0?round2((gananciaNetaArs/precioArs)*100):0;
+  item.estado="vendido";
+  item.fechaVenta=fechaVenta;
+  item.precioVenta=precio;
+  item.precioVentaCurrency=currency;
+  item.precioVentaArs=precioArs;
+  item.precioVentaUsd=precioUsd;
+  item.gananciaNetaArs=gananciaNetaArs;
+  item.margenPct=margenPct;
+  saveRentabilidad();
+  cancelVenta();
+  renderRentabilidad();
+  showToast("Venta registrada ✅","success");
+}
+function volverInventario(id){
+  const item=rentabilidad.find(r=>r.id===id); if(!item) return;
+  if(!confirm("¿Deshacer la venta y volver a inventario?"))return;
+  item.estado="inventario";
+  item.fechaVenta=null;item.precioVenta=null;item.precioVentaCurrency=null;
+  item.precioVentaArs=null;item.precioVentaUsd=null;item.gananciaNetaArs=null;item.margenPct=null;
+  saveRentabilidad();
+  renderRentabilidad();
+  showToast("Venta deshecha","success");
+}
+function deleteRent(id){
+  if(!confirm("¿Borrar este producto?"))return;
+  rentabilidad=rentabilidad.filter(r=>r.id!==id);
+  saveRentabilidad();
+  renderRentabilidad();
+}
+function renderRentabilidad(){
+  const inventario=rentabilidad.filter(r=>r.estado==="inventario");
+  const vendidos=rentabilidad.filter(r=>r.estado==="vendido");
+
+  $("rentTotalVendidos").textContent=vendidos.length;
+  $("rentTotalInventario").textContent=inventario.length;
+  const margenProm=vendidos.length?round2(vendidos.reduce((s,v)=>s+(v.margenPct||0),0)/vendidos.length):null;
+  $("rentMargenProm").textContent=margenProm!==null?`${margenProm}%`:"—";
+
+  const ulInv=$("rentInventarioList"); ulInv.innerHTML="";
+  $("rentInventarioEmpty").style.display=inventario.length?"none":"";
+  inventario.forEach(r=>{
+    const costoTxt=r.costoCurrency==="USD"?fmtUSD(r.costo):fmtARS(r.costo);
+    const li=document.createElement("li");li.className="item";
+    li.innerHTML=`<div class="itemTop"><div>
+        <strong>${escapeHtml(r.nombre)}</strong>
+        <div class="muted">Compra: ${r.fechaCompra} • Costo: ${costoTxt} • Log: ${fmtARS(r.gastosLogisticos||0)}</div>
+      </div>
+      <div class="actions">
+        <button class="rent" data-vender="${r.id}" style="width:auto;">Vender</button>
+        <button class="ghost" data-delrent="${r.id}">Borrar</button>
+      </div></div>`;
+    ulInv.appendChild(li);
+  });
+  ulInv.querySelectorAll("button[data-vender]").forEach(b=>b.onclick=()=>startVenta(b.getAttribute("data-vender")));
+  ulInv.querySelectorAll("button[data-delrent]").forEach(b=>b.onclick=()=>deleteRent(b.getAttribute("data-delrent")));
+
+  const ulVen=$("rentVendidosList"); ulVen.innerHTML="";
+  $("rentVendidosEmpty").style.display=vendidos.length?"none":"";
+  vendidos.forEach(r=>{
+    const ventaTxt=r.precioVentaCurrency==="USD"?fmtUSD(r.precioVenta):fmtARS(r.precioVenta);
+    const gananciaColor=(r.gananciaNetaArs||0)>=0?"#2DD4BF":"#ef4444";
+    const li=document.createElement("li");li.className="item";
+    li.innerHTML=`<div class="itemTop"><div>
+        <strong>${escapeHtml(r.nombre)}</strong>
+        <div class="muted">Venta: ${r.fechaVenta} • Precio: ${ventaTxt}</div>
+        <div style="color:${gananciaColor};font-weight:800;margin-top:4px;">Ganancia Neta: ${fmtARS(r.gananciaNetaArs)} (Margen: ${r.margenPct}%)</div>
+      </div>
+      <div class="actions">
+        <button class="ghost" data-undo="${r.id}">Deshacer</button>
+        <button class="ghost" data-delrent="${r.id}">Borrar</button>
+      </div></div>`;
+    ulVen.appendChild(li);
+  });
+  ulVen.querySelectorAll("button[data-undo]").forEach(b=>b.onclick=()=>volverInventario(b.getAttribute("data-undo")));
+  ulVen.querySelectorAll("button[data-delrent]").forEach(b=>b.onclick=()=>deleteRent(b.getAttribute("data-delrent")));
+}
+
 // FECHAS IMPORTANTES
 function loadFechasImp(){try{return JSON.parse(localStorage.getItem(FECHASIMP_KEY)||'[]');}catch{return [];}}
 function saveFechasImp(){localStorage.setItem(FECHASIMP_KEY,JSON.stringify(fechasImp));}
@@ -618,7 +759,8 @@ function exportBackup(){
     rates:loadRatesCache(),
     eventos:loadEventos(),
     ingresos:loadIngresos(),
-    fechasImp:loadFechasImp()
+    fechasImp:loadFechasImp(),
+    rentabilidad:loadRentabilidad()
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob);
@@ -645,9 +787,10 @@ function importBackup(ev){
     if(Array.isArray(data.eventos)){eventos=data.eventos;saveEventos();}
     if(Array.isArray(data.ingresos)){ingresos=data.ingresos;saveIngresos();}
     if(Array.isArray(data.fechasImp)){fechasImp=data.fechasImp;saveFechasImp();}
+    if(Array.isArray(data.rentabilidad)){rentabilidad=data.rentabilidad;saveRentabilidad();}
     renderCatDatalist();renderMethodsSelect();renderMethodsManager();renderRates();
     updatePreview();renderList();renderCalendar();renderDayDetails();renderMonth();
-    renderEventsList();renderIngresosList();renderFechasImpList();updateBellDot();
+    renderEventsList();renderIngresosList();renderFechasImpList();renderRentabilidad();updateBellDot();
     $("inputImportBackup").value="";
     showToast("Datos restaurados correctamente ✅","success");
   };
