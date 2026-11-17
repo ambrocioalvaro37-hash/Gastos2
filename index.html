@@ -1,0 +1,671 @@
+<!doctype html><html lang="es"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="theme-color" content="#111111"/><link rel="manifest" href="manifest.json"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<title>Gastos ARS/USD</title>
+<style>
+@property --bg-a{ syntax:'<color>'; inherits:false; initial-value:#070A10; }
+@property --bg-b{ syntax:'<color>'; inherits:false; initial-value:#0B1220; }
+:root{
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --bg0:#070A10;
+  --bg1:#0B1220;
+  --card: rgba(255,255,255,.06);
+  --card2: rgba(255,255,255,.08);
+  --stroke: rgba(255,255,255,.10);
+  --stroke2: rgba(255,255,255,.14);
+  --text:#F6F7FB;
+  --muted: rgba(255,255,255,.72);
+  --accent:#1B5CFF;
+  --accent2:#6EA8FF;
+  --good:#2DD4BF;
+  --event:#FF6B35;
+  --ingreso:#10B981;
+  --hist:#8B5CF6;
+  --hist2:#C4B5FD;
+  --mes:#06B6D4;
+  --mes2:#67E8F9;
+  --rent:#F59E0B;
+  --rent2:#FCD34D;
+  --radius:18px;
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: 'Sora', system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  color:var(--text);
+  --bg-a:#070A10; --bg-b:#0B1220;
+  background: linear-gradient(180deg, var(--bg-a), var(--bg-b));
+  min-height:100vh;
+  transition: --bg-a 300ms ease, --bg-b 300ms ease;
+}
+
+/* Fondos por sección (se interpolan gracias a @property) */
+body[data-view="list"]{ --bg-a:#0A0714; --bg-b:#120B21; }
+body[data-view="month"]{ --bg-a:#04090B; --bg-b:#081824; }
+body[data-view="events"]{ --bg-a:#0A0605; --bg-b:#1A0D06; }
+body[data-view="ingresos"]{ --bg-a:#04100B; --bg-b:#071710; }
+body[data-view="rentabilidad"]{ --bg-a:#140F02; --bg-b:#1F1706; }
+
+header{
+  padding:16px;
+  display:flex; align-items:center; gap:12px;
+  position: sticky; top:0; z-index:10;
+  backdrop-filter: blur(10px);
+  background: rgba(7,10,16,.65);
+  border-bottom:1px solid var(--stroke);
+}
+.headerTitle{ flex:1; min-width:0; }
+.headerActions{ display:flex; align-items:center; gap:10px; flex-shrink:0; }
+
+main{ padding:16px; max-width: 1020px; margin:0 auto; }
+
+.row{ display:flex; gap:12px; flex-wrap:wrap; }
+
+.card{
+  border:1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding:14px;
+  background: linear-gradient(180deg, rgba(27,92,255,.14), rgba(0,0,0,.22));
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+
+.card h2{ margin:0 0 10px; font-size:16px; letter-spacing:.2px; }
+
+label{ font-size:12px; color: var(--muted); display:block; margin-bottom:6px; }
+
+input, select, textarea{
+  width:100%;
+  border-radius: 14px;
+  border:1px solid var(--stroke);
+  background: rgba(0,0,0,.30);
+  color: var(--text);
+  padding: 11px 12px;
+  font-size:14px;
+  outline:none;
+  transition: border .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+input:focus, select:focus, textarea:focus{
+  border-color: rgba(27,92,255,.65);
+  box-shadow: 0 0 0 4px rgba(27,92,255,.18);
+}
+
+textarea{ min-height:72px; resize: vertical; }
+
+button{
+  width:100%;
+  border-radius: 14px;
+  border:1px solid var(--stroke);
+  background: rgba(0,0,0,.18);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  transition: transform 160ms var(--ease-out), background .15s ease, border .15s ease, box-shadow .15s ease;
+}
+
+@media (hover: hover) and (pointer: fine){
+  button:hover{
+    background: rgba(255,255,255,.08);
+    border-color: var(--stroke2);
+  }
+}
+
+button:active{ transform: scale(.97); }
+
+button.primary{
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-color: rgba(27,92,255,.55);
+  box-shadow: 0 10px 24px rgba(27,92,255,.22);
+}
+
+@media (hover: hover) and (pointer: fine){ button.primary:hover{ box-shadow: 0 14px 30px rgba(27,92,255,.28); } }
+
+button.event{background:linear-gradient(135deg,#FF6B35,#FFA07A);border-color:rgba(255,107,53,.55);box-shadow:0 10px 24px rgba(255,107,53,.22);}
+@media (hover: hover) and (pointer: fine){ button.event:hover{box-shadow:0 14px 30px rgba(255,107,53,.28);} }
+button.ingreso{background:linear-gradient(135deg,#10B981,#34D399);border-color:rgba(16,185,129,.55);box-shadow:0 10px 24px rgba(16,185,129,.22);}
+@media (hover: hover) and (pointer: fine){ button.ingreso:hover{box-shadow:0 14px 30px rgba(16,185,129,.28);} }
+button.rent{background:linear-gradient(135deg,#F59E0B,#FCD34D);border-color:rgba(245,158,11,.55);box-shadow:0 10px 24px rgba(245,158,11,.22);color:#1a1200;}
+@media (hover: hover) and (pointer: fine){ button.rent:hover{box-shadow:0 14px 30px rgba(245,158,11,.28);} }
+
+button.ghost{ background: transparent; }
+
+.muted{ color: var(--muted); font-size:12px; }
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border:1px solid var(--stroke);
+  border-radius:999px;
+  font-size:12px;
+  background: rgba(0,0,0,.22);
+}
+
+.list{ margin:0; padding:0; list-style:none; }
+.item{ padding: 10px 0; border-bottom:1px solid var(--stroke); }
+.item:last-child{ border-bottom:0; }
+.itemTop{ display:flex; justify-content:space-between; gap:10px; }
+.actions{ display:flex; gap:8px; }
+.actions button{ width:auto; padding:8px 10px; font-size:12px; border-radius: 12px; }
+
+/* Sidebar */
+.appShell{ display:flex; min-height:100vh; align-items:stretch; }
+.sidebar{
+  width:230px; flex-shrink:0;
+  background: #0B0F1A;
+  border-right:1px solid var(--stroke);
+  padding:18px 12px;
+  position:fixed; top:0; left:0; bottom:0;
+  transform:translateX(-100%);
+  visibility:hidden;
+  transition: transform 300ms var(--ease-drawer), visibility 0s linear 300ms;
+  z-index:1000;
+  overflow-y:auto;
+}
+.sidebar.open{ transform:translateX(0); visibility:visible; transition-delay:0s; }
+.sidebarBrand{ font-weight:800; font-size:16px; padding:6px 10px 22px; display:flex; align-items:center; gap:8px; }
+.sidebarNav{ display:flex; flex-direction:column; gap:6px; }
+.navItem{
+  display:flex; align-items:center; gap:10px;
+  width:100%; text-align:left; padding:12px 14px;
+  border-radius:12px; border:1px solid transparent;
+  background:transparent; font-weight:700; font-size:14px;
+}
+.navItem span{ font-size:14px; }
+#tabAdd{ color: var(--accent2); }
+#tabList{ color: var(--hist2); }
+#tabMonth{ color: var(--mes2); }
+#tabEvents{ color: #FFB08A; }
+#tabIngresos{ color: #6EE7B7; }
+#tabRentabilidad{ color: var(--rent2); }
+.navItem.active{
+  background: rgba(27,92,255,.18);
+  border-color: rgba(27,92,255,.45);
+  box-shadow: 0 8px 18px rgba(27,92,255,.15);
+}
+#tabList.active{
+  background: rgba(139,92,246,.18);
+  border-color: rgba(139,92,246,.45);
+  box-shadow: 0 8px 18px rgba(139,92,246,.15);
+}
+#tabMonth.active{
+  background: rgba(6,182,212,.18);
+  border-color: rgba(6,182,212,.45);
+  box-shadow: 0 8px 18px rgba(6,182,212,.15);
+}
+#tabEvents.active{
+  background: rgba(255,107,53,.18);
+  border-color: rgba(255,107,53,.45);
+  box-shadow: 0 8px 18px rgba(255,107,53,.15);
+}
+#tabIngresos.active{
+  background: rgba(16,185,129,.18);
+  border-color: rgba(16,185,129,.45);
+  box-shadow: 0 8px 18px rgba(16,185,129,.15);
+}
+#tabRentabilidad.active{
+  background: rgba(245,158,11,.18);
+  border-color: rgba(245,158,11,.45);
+  box-shadow: 0 8px 18px rgba(245,158,11,.15);
+}
+.sidebarBackdrop{
+  position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999;
+  opacity:0; visibility:hidden;
+  transition: opacity 300ms var(--ease-out), visibility 0s linear 300ms;
+}
+.sidebarBackdrop.show{ opacity:1; visibility:visible; transition-delay:0s; }
+.mainArea{ flex:1; min-width:0; }
+
+@media (min-width:900px){
+  .sidebar{ position:sticky; transform:none; visibility:visible; }
+  .sidebarBackdrop{ display:none !important; }
+  #btnMenuToggle{ display:none; }
+}
+
+/* Header icon buttons / dropdowns */
+.iconBtn{
+  width:auto; padding:9px 11px; border-radius:999px; font-size:17px;
+  background: rgba(255,255,255,.06); border:1px solid var(--stroke); position:relative;
+}
+.bellDot{
+  position:absolute; top:4px; right:4px; width:9px; height:9px; border-radius:50%;
+  background:#ef4444; border:2px solid var(--bg0);
+}
+.userBtn{
+  width:auto; display:flex; align-items:center; gap:4px; padding:4px 10px 4px 4px;
+  border-radius:999px; background: rgba(255,255,255,.06); border:1px solid var(--stroke);
+}
+.avatarCircle{
+  width:26px; height:26px; border-radius:50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display:flex; align-items:center; justify-content:center; font-size:14px;
+}
+.caret{ font-size:11px; opacity:.7; }
+.userMenuWrap{ position:relative; }
+.userDropdown{
+  position:absolute; right:0; top:calc(100% + 10px); width:260px;
+  background: var(--bg1); border:1px solid var(--stroke2); border-radius:14px;
+  padding:14px; box-shadow:0 20px 40px rgba(0,0,0,.5); z-index:1500;
+  transform-origin: top right;
+  opacity:0; transform:scale(.95); visibility:hidden; pointer-events:none;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out), visibility 0s linear 200ms;
+}
+.userDropdown.open{ opacity:1; transform:scale(1); visibility:visible; pointer-events:auto; transition-delay:0s; }
+
+.grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+hr{ border:0; border-top:1px solid var(--stroke); margin:12px 0; }
+
+@media (max-width: 820px){ .grid2{ grid-template-columns:1fr; } }
+
+/* ==== UX polish ==== */
+button:disabled{opacity:.5; cursor:not-allowed;}
+button:disabled:hover{background: rgba(0,0,0,.18); border-color: var(--stroke); box-shadow:none;}
+/* Make 2 buttons sit nicely */
+.btnRow{display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;}
+.btnRow > button{flex:1; width:auto; min-width: 220px;}
+/* Entrada de vistas: se dispara sola cada vez que la sección pasa de display:none a visible */
+#topPanels, #viewAdd, #viewList, #viewMonth, #viewEvents, #viewIngresos, #viewRentabilidad, #rentVentaPanel{
+  animation: viewIn 180ms var(--ease-out) backwards;
+}
+@keyframes viewIn{ from{ opacity:0; transform:translateY(6px); } }
+@keyframes viewFade{ from{ opacity:0; } }
+
+/* Sticky panels inside Mes/Historial */
+.stickyBar{
+  position: sticky;
+  top: 86px;
+  z-index: 6;
+  margin: 8px 0 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  background: rgba(0,0,0,.22);
+  backdrop-filter: blur(12px);
+}
+
+/* Calendar buttons */
+.calGridHeader{display:grid; grid-template-columns: repeat(7,1fr); gap:8px;}
+.calGridDays{display:grid; grid-template-columns: repeat(7,1fr); gap:8px; margin-top:8px;}
+.calDayBtn{
+  height:56px;
+  border-radius: 16px;
+  border:1px solid var(--stroke);
+  background: rgba(0,0,0,.18);
+  color: var(--text);
+  padding: 8px 10px;
+  text-align:left;
+}
+@media (hover: hover) and (pointer: fine){ .calDayBtn:hover{border-color: var(--stroke2); background: rgba(255,255,255,.06);} }
+.calDayBtn.sel{
+  border-color: rgba(27,92,255,.55);
+  background: rgba(27,92,255,.16);
+  box-shadow: 0 10px 22px rgba(27,92,255,.18);
+}
+.dot{
+  width:7px;height:7px;border-radius:50%;
+  background: var(--good);
+  display:inline-block;
+}
+.dotEvent{
+  width:7px;height:7px;border-radius:50%;
+  background: var(--event);
+  display:inline-block;
+}
+.dotRow{display:flex; align-items:center; gap:6px;}
+.subcard{background: linear-gradient(180deg, rgba(27,92,255,.10), rgba(0,0,0,.28)); border-color: rgba(255,255,255,.10);}
+
+/* Colores por sección */
+#viewList.card{ border-color: rgba(139,92,246,.35); background: linear-gradient(180deg, rgba(139,92,246,.14), rgba(0,0,0,.22)); }
+#viewList h2{ color: var(--hist2); }
+#viewList #btnHistoryToMonth{ border-color: rgba(139,92,246,.45); }
+
+#viewMonth.card{ border-color: rgba(6,182,212,.35); background: linear-gradient(180deg, rgba(6,182,212,.12), rgba(0,0,0,.22)); }
+#viewMonth h2{ color: var(--mes2); }
+#viewMonth .subcard{ border-color: rgba(6,182,212,.18); background: linear-gradient(180deg, rgba(6,182,212,.08), rgba(0,0,0,.28)); }
+
+#viewEvents.card{ border-color: rgba(255,107,53,.35); background: linear-gradient(180deg, rgba(255,107,53,.12), rgba(0,0,0,.22)); }
+#viewEvents h2{ color: #FFB08A; }
+
+#viewIngresos.card{ border-color: rgba(16,185,129,.35); background: linear-gradient(180deg, rgba(16,185,129,.12), rgba(0,0,0,.22)); }
+#viewIngresos h2{ color: #6EE7B7; }
+
+#viewRentabilidad.card{ border-color: rgba(245,158,11,.35); background: linear-gradient(180deg, rgba(245,158,11,.12), rgba(0,0,0,.22)); }
+#viewRentabilidad h2{ color: #FCD34D; }
+#viewRentabilidad .subcard{ border-color: rgba(245,158,11,.18); background: linear-gradient(180deg, rgba(245,158,11,.08), rgba(0,0,0,.28)); }
+
+/* Toasts */
+#toastContainer{
+  position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+  display:flex; flex-direction:column; gap:8px; z-index:9999;
+  width:min(92vw, 380px); pointer-events:none;
+}
+.toast{
+  padding:12px 16px; border-radius:14px; font-weight:700; font-size:14px;
+  backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  border:1px solid; opacity:0; transform:translateY(100%);
+  transition: opacity 400ms ease, transform 400ms ease;
+  pointer-events:auto;
+}
+.toast.show{ opacity:1; transform:translateY(0); }
+.toast.success{ background: rgba(16,185,129,.22); border-color: rgba(16,185,129,.55); color:#D1FAE5; }
+.toast.error{ background: rgba(239,68,68,.22); border-color: rgba(239,68,68,.55); color:#FEE2E2; }
+.toast.info{ background: rgba(27,92,255,.22); border-color: rgba(27,92,255,.55); color:#DBEAFE; }
+
+/* Movimiento reducido: sin desplazamientos ni escalas, solo fundidos */
+@media (prefers-reduced-motion: reduce){
+  #topPanels, #viewAdd, #viewList, #viewMonth, #viewEvents, #viewIngresos, #viewRentabilidad, #rentVentaPanel{ animation-name: viewFade; }
+  button:active{ transform:none; opacity:.85; }
+  .userDropdown, .userDropdown.open{ transform:none; }
+  .toast, .toast.show{ transform:none; }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 899px){
+  .sidebar{ transform:none; opacity:0; transition: opacity 200ms var(--ease-out), visibility 0s linear 200ms; }
+  .sidebar.open{ opacity:1; transition-delay:0s; }
+}
+</style></head><body>
+<div class="appShell">
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebarBrand">💼 <span>Gastos <b>ARS/USD</b></span></div>
+    <nav class="sidebarNav">
+      <button class="ghost navItem" id="tabAdd">➕ <span>Agregar</span></button>
+      <button class="ghost navItem" id="tabList">🧾 <span>Historial</span></button>
+      <button class="ghost navItem" id="tabMonth">📅 <span>Mes</span></button>
+      <button class="ghost navItem" id="tabEvents">🗓️ <span>Eventos</span></button>
+      <button class="ghost navItem" id="tabIngresos">💰 <span>Ingresos</span></button>
+      <button class="ghost navItem" id="tabRentabilidad">📦 <span>Rentabilidad</span></button>
+    </nav>
+  </aside>
+  <div id="sidebarBackdrop" class="sidebarBackdrop"></div>
+
+  <div class="mainArea">
+    <header>
+      <button id="btnMenuToggle" class="iconBtn" aria-label="Abrir menú">☰</button>
+      <div class="headerTitle">
+        <div style="font-weight:800;font-size:18px;">Gastos ARS/USD</div>
+        <div class="muted" style="font-size:12px;">Blue automático + dólar "congelado" por gasto</div>
+      </div>
+      <div class="headerActions">
+        <div id="bellWrap" style="position:relative;">
+          <button id="btnBell" class="iconBtn" aria-label="Notificaciones">🔔<span id="bellDot" class="bellDot" style="display:none;"></span></button>
+          <div id="bellDropdown" class="userDropdown"></div>
+        </div>
+        <div class="userMenuWrap">
+          <button id="btnUserMenu" class="userBtn" aria-label="Usuario">
+            <span class="avatarCircle">🙂</span><span class="caret">▾</span>
+          </button>
+          <div id="userDropdown" class="userDropdown">
+            <div style="font-weight:800;margin-bottom:4px;">💾 Copia de seguridad</div>
+            <div class="muted" style="font-size:12px;margin-bottom:10px;">Guardá tus datos antes de actualizar la app, o restauralos después</div>
+            <button class="ghost" id="btnExportBackup" style="width:100%;margin-bottom:6px;">⬇️ Exportar</button>
+            <button class="ghost" id="btnImportBackup" style="width:100%;">⬆️ Importar</button>
+            <input type="file" id="inputImportBackup" accept="application/json" style="display:none;"/>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div id="topPanels" class="grid2">
+        <section class="card" id="panelRates">
+          <h2>💱 Dólar Blue (auto)</h2>
+      <div class="row">
+        <div style="flex:1;min-width:200px;"><div class="pill">Compra: <span id="blueCompra">—</span></div></div>
+        <div style="flex:1;min-width:200px;"><div class="pill">Venta: <span id="blueVenta">—</span></div></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div style="flex:1;">
+          <div class="muted">Actualizado: <span id="blueUpdated">—</span></div>
+          <div class="muted" id="blueStatus">Estado: —</div>
+        </div>
+        <div style="width:220px;"><button id="btnRefreshRates">Actualizar ahora</button></div>
+      </div>
+    </section>
+
+    <section class="card" id="panelSettings">
+      <h2>⚙️ Preferencias</h2>
+      <label>Por defecto al crear un gasto</label>
+      <div class="row">
+        <div style="flex:1;min-width:220px;">
+          <select id="defaultRateType"><option value="venta">Usar VENTA (recomendado)</option><option value="compra">Usar COMPRA</option></select>
+        </div>
+        <div style="flex:1;min-width:220px;">
+          <button class="ghost" id="btnToggleAlwaysVenta"></button>
+          <div class="muted">Si está activado, el selector arranca en Venta siempre.</div>
+        </div>
+      </div>
+
+      <hr><h2 style="margin:0 0 10px;font-size:16px;">💳 Métodos de pago (manual)</h2>
+      <div class="row">
+        <div style="flex:1;min-width:220px;"><label>Nuevo método</label><input id="newMethod" placeholder="Ej: Brubank / AstroPay / Ualá"/></div>
+        <div style="width:220px;align-self:end;"><button id="btnAddMethod">Agregar método</button></div>
+      </div>
+      <ul class="list" id="methodsList" style="margin-top:10px;"></ul>
+      <div class="muted">Tip: si un método ya fue usado en gastos, no se puede borrar (modo seguro).</div>
+    </section>
+  </div>
+
+  <section class="card" id="viewAdd" class="view is-visible" style="margin-top:12px;">
+    <h2>➕ Agregar gasto</h2>
+    <div class="row">
+      <div style="flex:1;min-width:180px;"><label>Fecha</label><input type="date" id="date"/></div>
+      <div style="flex:1;min-width:180px;"><label>Moneda</label><select id="currency"><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+      <div style="flex:1;min-width:180px;"><label>Monto</label><input type="number" id="amount" placeholder="Ej: 10000" step="0.01"/></div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div style="flex:1;min-width:240px;"><label>Categoría</label><input id="category" list="catList" placeholder="Ej: Comida"/><datalist id="catList"></datalist></div>
+      <div style="flex:1;min-width:240px;"><label>Método (opcional)</label><select id="method"></select></div>
+      <div style="flex:1;min-width:240px;"><label>Tipo cambio (siempre visible)</label><select id="rateType"><option value="venta">Blue VENTA</option><option value="compra">Blue COMPRA</option></select></div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div style="flex:2;min-width:260px;"><label>Nota (opcional)</label><textarea id="note" placeholder="Ej: super / envio / antojo..."></textarea></div>
+      <div style="flex:1;min-width:260px;"><label>Vista previa</label><div class="pill" id="preview">—</div><div class="muted" style="margin-top:8px;">Se guarda el dólar exacto usado para este gasto.</div></div>
+    </div>
+
+    <div class="btnRow">
+      <button class="primary" id="btnSave">Guardar gasto</button>
+      <button class="ghost" id="btnExportCsv">Exportar CSV</button>
+    </div>
+  </section>
+
+  <section class="card" id="viewList" class="view" style="margin-top:12px;display:none;">
+    <div class="stickyBar">
+<div class="row" style="justify-content:space-between;align-items:center;">
+      <h2 style="margin:0;">📜 Historial</h2>
+      <button class="ghost" id="btnHistoryToMonth" style="width:auto;">📅 Ir a Mes</button>
+    </div>
+
+    <div id="dayFilterBar" class="pill" style="display:none;margin-top:10px;">
+      Día: <strong id="dayFilterText">—</strong> • Total: <strong id="dayFilterUSD">—</strong> / <strong id="dayFilterARS">—</strong>
+      <button class="ghost" id="btnClearDayFilter" style="margin-left:8px;width:auto;">Quitar</button>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div style="flex:1;min-width:220px;"><label>Filtrar mes</label><input type="month" id="filterMonth"/></div>
+</div>
+
+      <div style="flex:1;min-width:220px;"><label>Buscar</label><input id="filterText" placeholder="comida, antojos, mp..."/></div>
+    </div>
+
+    <ul class="list" id="list"></ul>
+    <div class="muted" id="listEmpty" style="display:none;">No hay gastos con ese filtro.</div>
+  </section>
+
+  <section class="card" id="viewMonth" class="view" style="margin-top:12px;display:none;">
+    <div class="stickyBar">
+<div class="row" style="justify-content:space-between;align-items:center;">
+      <h2 style="margin:0;">📊 Mes</h2>
+      <button class="ghost" id="btnDayToHistory" style="width:auto;">📜 Ver este día en Historial</button>
+    </div>
+
+    <div class="row" style="align-items:end;margin-top:10px;">
+      <div style="flex:1;min-width:220px;">
+        <label>Calendario</label>
+        <div class="row" style="align-items:center;">
+          <button class="ghost" id="calPrev" style="width:auto;">◀</button>
+          <div class="pill" id="calTitle" style="flex:1;text-align:center;">—</div>
+          <button class="ghost" id="calNext" style="width:auto;">▶</button>
+        </div>
+        <div class="row" style="margin-top:8px;"><button class="ghost" id="calToday" style="width:auto;">Hoy</button></div>
+      </div>
+    </div>
+
+    <div class="card subcard" style="margin-top:12px;">
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <div class="pill">Seleccionado: <strong id="calSelected">—</strong></div>
+</div>
+
+        <div class="pill">Total día: <strong id="dayTotalUSD">—</strong> / <strong id="dayTotalARS">—</strong></div>
+      </div>
+      </div>
+    <div class="card subcard" style="margin-top:12px;">
+      <div id="calendarGrid" style="margin-top:0;"></div>
+    </div>
+
+    <div class="card subcard" style="margin-top:12px;">
+      <h2 style="margin:0 0 10px;font-size:16px;">🧾 Gastos del día (con hora)</h2>
+      <ul class="list" id="dayList"></ul>
+      <div class="muted" id="dayEmpty" style="display:none;">No hay gastos en este día.</div>
+    </div>
+
+    <div class="card subcard" style="margin-top:12px;">
+      <h2 style="margin:0 0 10px;font-size:16px;">📅 Eventos del día</h2>
+      <ul class="list" id="dayEventsList"></ul>
+      <div class="muted" id="dayEventsEmpty" style="display:none;">No hay eventos en este día.</div>
+    </div>
+
+    <div class="card subcard" style="margin-top:12px;">
+      <h2 style="margin:0 0 10px;font-size:16px;">⭐ Fechas importantes</h2>
+      <div class="row" style="align-items:end;">
+        <div style="flex:1;min-width:150px;"><label>Fecha</label><input type="date" id="fechaImpDate"/></div>
+        <div style="flex:2;min-width:200px;"><label>Descripción</label><input id="fechaImpDesc" placeholder="Cumpleaños, vencimiento, turno..."/></div>
+        <div style="flex:0;"><button class="ghost" id="btnSaveFechaImp" style="width:auto;">Guardar</button></div>
+      </div>
+      <ul class="list" id="fechasImpList" style="margin-top:10px;"></ul>
+      <div class="muted" id="fechasImpEmpty" style="display:none;">No hay fechas importantes cargadas.</div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <div class="pill">Total ARS mes: <strong id="sumARS">—</strong></div>
+      <div class="pill">Total USD mes (congelado): <strong id="sumUSD">—</strong></div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <h2 style="margin-top:0;">🥧 Gastos por categoría</h2>
+      <div id="catChartWrap" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+        <svg id="catChart" width="140" height="140" viewBox="0 0 140 140"></svg>
+        <div id="catChartLegend" style="flex:1;min-width:150px;display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+      <div class="muted" id="catChartEmpty" style="display:none;">No hay datos para ese mes.</div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <h2 style="margin-top:0;">🏆 Top categorías (por USD)</h2>
+      <ul class="list" id="catRank"></ul>
+      <div class="muted" id="catEmpty" style="display:none;">No hay datos para ese mes.</div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <h2 style="margin-top:0;">💳 Top métodos (ARS y USD)</h2>
+      <ul class="list" id="methodRank"></ul>
+      <div class="muted" id="methodEmpty" style="display:none;">No hay datos por método para ese mes.</div>
+    </div>
+  </section>
+
+  <section class="card" id="viewEvents" style="margin-top:12px;display:none;">
+    <h2>📅 Eventos</h2>
+    <div class="row">
+      <div style="flex:1;min-width:180px;"><label>Fecha</label><input type="date" id="eventDate"/></div>
+      <div style="flex:1;min-width:180px;"><label>Hora</label><input type="time" id="eventTime"/></div>
+      <div style="flex:1;"><label>Descripción</label><input id="eventDescription" placeholder="Saqué el perro..."/></div>
+    </div>
+    <button class="event" id="btnSaveEvent" style="margin-top:10px;">Guardar evento</button>
+    <hr>
+    <input type="month" id="filterEventMonth" style="margin-bottom:10px;"/>
+    <ul class="list" id="eventsList"></ul>
+  </section>
+
+  <section class="card" id="viewIngresos" style="margin-top:12px;display:none;">
+    <h2>💰 Ingresos</h2>
+    <div class="row">
+      <div style="flex:1;min-width:180px;"><label>Fecha</label><input type="date" id="ingresoDate"/></div>
+      <div style="flex:1;min-width:140px;"><label>Moneda</label><select id="ingresoCurrency"><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+      <div style="flex:1;min-width:180px;"><label>Monto</label><input type="number" id="ingresoAmount" placeholder="500000"/></div>
+      <div style="flex:1;"><label>Descripción</label><input id="ingresoDesc" placeholder="Sueldo, venta..."/></div>
+    </div>
+    <button class="ingreso" id="btnSaveIngreso" style="margin-top:10px;">Guardar ingreso</button>
+    <hr>
+    <h3>Balance del mes</h3>
+    <div class="pill">Ingresos: <strong id="totalIngresos">$0</strong></div>
+    <div class="pill">Gastos: <strong id="totalGastos">$0</strong></div>
+    <div class="pill">Balance: <strong id="balance">$0</strong></div>
+    <hr>
+    <input type="month" id="filterIngresoMonth" style="margin-bottom:10px;"/>
+    <ul class="list" id="ingresosList"></ul>
+  </section>
+
+  <section class="card" id="viewRentabilidad" style="margin-top:12px;display:none;">
+    <h2>📦 Rentabilidad</h2>
+
+    <div class="row" style="margin-bottom:14px;">
+      <div class="pill">Vendidos: <strong id="rentTotalVendidos">0</strong></div>
+      <div class="pill">Margen promedio: <strong id="rentMargenProm">—</strong></div>
+      <div class="pill">En inventario: <strong id="rentTotalInventario">0</strong></div>
+    </div>
+
+    <div class="card subcard" style="margin-top:0;">
+      <h2 style="margin:0 0 10px;font-size:16px;">➕ Registrar producto</h2>
+      <div class="row">
+        <div style="flex:2;min-width:180px;"><label>Producto</label><input id="rentNombre" placeholder="PS5, iPhone 13..."/></div>
+        <div style="flex:1;min-width:140px;"><label>Fecha compra</label><input type="date" id="rentFechaCompra"/></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div style="flex:1;min-width:110px;"><label>Moneda costo</label><select id="rentCostoCurrency"><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+        <div style="flex:1;min-width:150px;"><label>Costo del producto</label><input type="number" id="rentCosto" placeholder="300"/></div>
+        <div style="flex:1;min-width:170px;"><label>Gastos logísticos (ARS)</label><input type="number" id="rentGastos" placeholder="15000"/></div>
+      </div>
+      <button class="rent" id="btnSaveRent" style="margin-top:10px;">Guardar producto</button>
+    </div>
+
+    <div id="rentVentaPanel" class="card subcard" style="margin-top:12px;display:none;">
+      <h2 style="margin:0 0 10px;font-size:16px;">💰 Marcar como vendido: <span id="rentVentaNombre"></span></h2>
+      <div class="row">
+        <div style="flex:1;min-width:140px;"><label>Fecha venta</label><input type="date" id="rentFechaVenta"/></div>
+        <div style="flex:1;min-width:110px;"><label>Moneda venta</label><select id="rentVentaCurrency"><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+        <div style="flex:1;min-width:150px;"><label>Precio de venta</label><input type="number" id="rentPrecioVenta" placeholder="450000"/></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="rent" id="btnConfirmVenta" style="width:auto;">Confirmar venta</button>
+        <button class="ghost" id="btnCancelVenta" style="width:auto;">Cancelar</button>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <h2 style="margin:0 0 10px;">📥 En inventario</h2>
+      <ul class="list" id="rentInventarioList"></ul>
+      <div class="muted" id="rentInventarioEmpty" style="display:none;">No hay productos en inventario.</div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <h2 style="margin:0 0 10px;">✅ Vendidos</h2>
+      <ul class="list" id="rentVendidosList"></ul>
+      <div class="muted" id="rentVendidosEmpty" style="display:none;">Todavía no vendiste nada.</div>
+    </div>
+  </section>
+</main>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script src="app.js"></script></body></html>
