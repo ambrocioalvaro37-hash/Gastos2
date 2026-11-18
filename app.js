@@ -807,7 +807,7 @@ function showToast(msg,type="success"){
   t.classList.add("show");
   setTimeout(()=>{
     t.classList.remove("show");
-    setTimeout(()=>t.remove(),450);
+    setTimeout(()=>t.remove(),300);
   },2600);
 }
 

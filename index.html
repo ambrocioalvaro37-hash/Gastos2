@@ -6,8 +6,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <title>Gastos ARS/USD</title>
 <style>
-@property --bg-a{ syntax:'<color>'; inherits:false; initial-value:#070A10; }
-@property --bg-b{ syntax:'<color>'; inherits:false; initial-value:#0B1220; }
 :root{
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
@@ -39,18 +37,26 @@ body{
   margin:0;
   font-family: 'Sora', system-ui, -apple-system, Segoe UI, Roboto, Arial;
   color:var(--text);
-  --bg-a:#070A10; --bg-b:#0B1220;
-  background: linear-gradient(180deg, var(--bg-a), var(--bg-b));
+  background: linear-gradient(180deg, var(--bg0), var(--bg1));
   min-height:100vh;
-  transition: --bg-a 300ms ease, --bg-b 300ms ease;
 }
 
-/* Fondos por sección (se interpolan gracias a @property) */
-body[data-view="list"]{ --bg-a:#0A0714; --bg-b:#120B21; }
-body[data-view="month"]{ --bg-a:#04090B; --bg-b:#081824; }
-body[data-view="events"]{ --bg-a:#0A0605; --bg-b:#1A0D06; }
-body[data-view="ingresos"]{ --bg-a:#04100B; --bg-b:#071710; }
-body[data-view="rentabilidad"]{ --bg-a:#140F02; --bg-b:#1F1706; }
+/* Fondos por sección: capas fijas que se funden solo con opacity (compositor, sin repintar).
+   La capa que entra queda arriba (z-index -1); la que sale se mantiene opaca hasta que la nueva
+   terminó de aparecer, así no hay "hueco" a mitad del fundido. */
+.bgLayer{ position:fixed; inset:0; z-index:-2; opacity:0; pointer-events:none; transition: opacity 0s linear 300ms; }
+#bgAdd{ background: linear-gradient(180deg, #070A10, #0B1220); }
+#bgList{ background: linear-gradient(180deg, #0A0714, #120B21); }
+#bgMonth{ background: linear-gradient(180deg, #04090B, #081824); }
+#bgEvents{ background: linear-gradient(180deg, #0A0605, #1A0D06); }
+#bgIngresos{ background: linear-gradient(180deg, #04100B, #071710); }
+#bgRent{ background: linear-gradient(180deg, #140F02, #1F1706); }
+body[data-view="add"] #bgAdd,
+body[data-view="list"] #bgList,
+body[data-view="month"] #bgMonth,
+body[data-view="events"] #bgEvents,
+body[data-view="ingresos"] #bgIngresos,
+body[data-view="rentabilidad"] #bgRent{ z-index:-1; opacity:1; transition: opacity 300ms ease; }
 
 header{
   padding:16px;
@@ -167,11 +173,11 @@ button.ghost{ background: transparent; }
   position:fixed; top:0; left:0; bottom:0;
   transform:translateX(-100%);
   visibility:hidden;
-  transition: transform 300ms var(--ease-drawer), visibility 0s linear 300ms;
+  transition: transform 220ms var(--ease-drawer), visibility 0s linear 220ms;
   z-index:1000;
   overflow-y:auto;
 }
-.sidebar.open{ transform:translateX(0); visibility:visible; transition-delay:0s; }
+.sidebar.open{ transform:translateX(0); visibility:visible; transition: transform 300ms var(--ease-drawer), visibility 0s; }
 .sidebarBrand{ font-weight:800; font-size:16px; padding:6px 10px 22px; display:flex; align-items:center; gap:8px; }
 .sidebarNav{ display:flex; flex-direction:column; gap:6px; }
 .navItem{
@@ -220,9 +226,9 @@ button.ghost{ background: transparent; }
 .sidebarBackdrop{
   position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999;
   opacity:0; visibility:hidden;
-  transition: opacity 300ms var(--ease-out), visibility 0s linear 300ms;
+  transition: opacity 220ms var(--ease-out), visibility 0s linear 220ms;
 }
-.sidebarBackdrop.show{ opacity:1; visibility:visible; transition-delay:0s; }
+.sidebarBackdrop.show{ opacity:1; visibility:visible; transition: opacity 300ms var(--ease-out), visibility 0s; }
 .mainArea{ flex:1; min-width:0; }
 
 @media (min-width:900px){
@@ -257,9 +263,9 @@ button.ghost{ background: transparent; }
   padding:14px; box-shadow:0 20px 40px rgba(0,0,0,.5); z-index:1500;
   transform-origin: top right;
   opacity:0; transform:scale(.95); visibility:hidden; pointer-events:none;
-  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out), visibility 0s linear 200ms;
+  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out), visibility 0s linear 150ms;
 }
-.userDropdown.open{ opacity:1; transform:scale(1); visibility:visible; pointer-events:auto; transition-delay:0s; }
+.userDropdown.open{ opacity:1; transform:scale(1); visibility:visible; pointer-events:auto; transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out), visibility 0s; }
 
 .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
 hr{ border:0; border-top:1px solid var(--stroke); margin:12px 0; }
@@ -272,12 +278,12 @@ button:disabled:hover{background: rgba(0,0,0,.18); border-color: var(--stroke); 
 /* Make 2 buttons sit nicely */
 .btnRow{display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;}
 .btnRow > button{flex:1; width:auto; min-width: 220px;}
-/* Entrada de vistas: se dispara sola cada vez que la sección pasa de display:none a visible */
-#topPanels, #viewAdd, #viewList, #viewMonth, #viewEvents, #viewIngresos, #viewRentabilidad, #rentVentaPanel{
-  animation: viewIn 180ms var(--ease-out) backwards;
+/* Entrada de vistas: transición (no keyframes) con @starting-style; corre cada vez que la sección pasa de
+   display:none a visible. Se usa decenas de veces por día, por eso es mínima: 150ms y 4px. */
+#topPanels, #viewAdd, #viewList, #viewMonth, #viewEvents, #viewIngresos, #viewRentabilidad, #rentVentaPanel{ transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out); }
+@starting-style{
+  #topPanels, #viewAdd, #viewList, #viewMonth, #viewEvents, #viewIngresos, #viewRentabilidad, #rentVentaPanel{ opacity:0; transform:translateY(4px); }
 }
-@keyframes viewIn{ from{ opacity:0; transform:translateY(6px); } }
-@keyframes viewFade{ from{ opacity:0; } }
 
 /* Sticky panels inside Mes/Historial */
 .stickyBar{
@@ -352,26 +358,32 @@ button:disabled:hover{background: rgba(0,0,0,.18); border-color: var(--stroke); 
   padding:12px 16px; border-radius:14px; font-weight:700; font-size:14px;
   backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,.4);
   border:1px solid; opacity:0; transform:translateY(100%);
-  transition: opacity 400ms ease, transform 400ms ease;
+  transition: opacity 250ms ease, transform 250ms ease;
   pointer-events:auto;
 }
-.toast.show{ opacity:1; transform:translateY(0); }
+.toast.show{ opacity:1; transform:translateY(0); transition: opacity 400ms ease, transform 400ms ease; }
 .toast.success{ background: rgba(16,185,129,.22); border-color: rgba(16,185,129,.55); color:#D1FAE5; }
 .toast.error{ background: rgba(239,68,68,.22); border-color: rgba(239,68,68,.55); color:#FEE2E2; }
 .toast.info{ background: rgba(27,92,255,.22); border-color: rgba(27,92,255,.55); color:#DBEAFE; }
 
 /* Movimiento reducido: sin desplazamientos ni escalas, solo fundidos */
 @media (prefers-reduced-motion: reduce){
-  #topPanels, #viewAdd, #viewList, #viewMonth, #viewEvents, #viewIngresos, #viewRentabilidad, #rentVentaPanel{ animation-name: viewFade; }
+  @starting-style{ #topPanels, #viewAdd, #viewList, #viewMonth, #viewEvents, #viewIngresos, #viewRentabilidad, #rentVentaPanel{ transform:none; } }
   button:active{ transform:none; opacity:.85; }
   .userDropdown, .userDropdown.open{ transform:none; }
   .toast, .toast.show{ transform:none; }
 }
 @media (prefers-reduced-motion: reduce) and (max-width: 899px){
   .sidebar{ transform:none; opacity:0; transition: opacity 200ms var(--ease-out), visibility 0s linear 200ms; }
-  .sidebar.open{ opacity:1; transition-delay:0s; }
+  .sidebar.open{ opacity:1; transition: opacity 200ms var(--ease-out), visibility 0s; }
 }
 </style></head><body>
+<div class="bgLayer" id="bgAdd" aria-hidden="true"></div>
+<div class="bgLayer" id="bgList" aria-hidden="true"></div>
+<div class="bgLayer" id="bgMonth" aria-hidden="true"></div>
+<div class="bgLayer" id="bgEvents" aria-hidden="true"></div>
+<div class="bgLayer" id="bgIngresos" aria-hidden="true"></div>
+<div class="bgLayer" id="bgRent" aria-hidden="true"></div>
 <div class="appShell">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarBrand">💼 <span>Gastos <b>ARS/USD</b></span></div>
